@@ -92,4 +92,60 @@
         const task = document.getElementById('userTask').value;
         const category = document.getElementById('category').value;
         if (!name || !task) return alert("Заповніть поля!");
-        db.ref('requests/').push({ name,
+        db.ref('requests/').push({ name, task, category, done: false, time: Date.now() });
+        document.getElementById('userTask').value = '';
+    }
+
+    db.ref('requests/').on('value', (snapshot) => {
+        const list = document.getElementById('requestList');
+        list.innerHTML = "";
+        const data = snapshot.val();
+        let active = 0, completed = 0;
+        if (data) {
+            for (let id in data) {
+                const req = data[id];
+                req.done ? completed++ : active++;
+                const div = document.createElement('div');
+                div.className = `card cat-${req.category} ${req.done ? 'done' : ''}`;
+                div.innerHTML = `
+                    <span class="badge badge-${req.category}">${req.category}</span>
+                    <strong>${req.name}</strong>
+                    <p style="margin: 8px 0; line-height:1.4;">${req.task}</p>
+                    <div style="display:flex; gap:8px;">
+                        <button style="width:auto; padding:6px 12px; font-size:12px; background:#2ecc71;" onclick="toggleDone('${id}', ${req.done})">Статус</button>
+                        <button style="width:auto; padding:6px 12px; font-size:12px; background:#e74c3c;" onclick="deleteReq('${id}')">🗑</button>
+                    </div>
+                `;
+                list.prepend(div);
+            }
+        }
+        document.getElementById('totalCount').innerText = active;
+        document.getElementById('doneCount').innerText = completed;
+    });
+
+    function toggleDone(id, current) { db.ref('requests/' + id).update({ done: !current }); }
+    function deleteReq(id) { if (confirm("Видалити?")) db.ref('requests/' + id).remove(); }
+
+    function sendChat() {
+        const msg = document.getElementById('chatMsg').value;
+        const name = document.getElementById('userName').value || "Сусід";
+        if (!msg) return;
+        db.ref('messages/').push({ text: `🚀 ${name}: ${msg}`, time: Date.now() });
+        document.getElementById('chatMsg').value = "";
+    }
+
+    db.ref('messages/').limitToLast(15).on('value', (snapshot) => {
+        const box = document.getElementById('chatBox');
+        box.innerHTML = "";
+        snapshot.forEach(child => {
+            const m = child.val();
+            const d = document.createElement('div');
+            d.className = "msg";
+            d.innerText = m.text;
+            box.appendChild(d);
+        });
+        box.scrollTop = box.scrollHeight;
+    });
+</script>
+</body>
+</html>
