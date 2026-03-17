@@ -7,32 +7,57 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f9; padding: 10px; transition: 0.3s; }
-        .is-admin { background: #e8f4fd !important; } /* Колір адміна */
-        .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        input, textarea, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
-        button { background: #0b2c5a; color: white; font-weight: bold; border: none; cursor: pointer; }
-        .card { padding: 15px; margin-top: 10px; border-radius: 10px; border-left: 6px solid #0b2c5a; background: #fff; position: relative; }
+        :root { --main-blue: #0b2c5a; --bg: #f0f4f8; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; transition: 0.3s; }
+        .is-admin { background: #ddecff !important; }
+        .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         
-        /* КНОПКИ АДМІНА - СХОВАНІ ЗА ЗАМОВЧУВАННЯМ */
+        /* СТАТИСТИКА */
+        .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat-box { flex: 1; background: #f8fafc; padding: 10px; border-radius: 12px; text-align: center; border: 1px solid #eee; }
+        .stat-box span { display: block; font-size: 20px; font-weight: bold; color: var(--main-blue); }
+        
+        input, textarea, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
+        button { background: var(--main-blue); color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 10px; }
+        
+        .card { padding: 15px; margin-top: 10px; border-radius: 12px; border-left: 6px solid var(--main-blue); background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: relative; }
         .admin-only { display: none !important; }
-        .is-admin .admin-only { display: inline-block !important; }
+        .is-admin .admin-only { display: block !important; }
         
-        .chat { height: 180px; overflow-y: auto; background: #eef2f5; padding: 10px; border-radius: 10px; margin-top: 20px; }
-        .del-btn { color: red; font-weight: bold; cursor: pointer; margin-left: 10px; float: right; }
+        .chat { height: 150px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 12px; margin-top: 15px; border: 1px solid #eee; font-size: 13px; }
+        .del { color: #ff4d4d; cursor: pointer; font-weight: bold; margin-left: 8px; }
     </style>
 </head>
 <body>
+
 <div class="container">
-    <h2 style="color:#0b2c5a; text-align:center;">🚀 Космонавтів 52</h2>
+    <div style="text-align: center; margin-bottom: 15px;">
+        <h1 style="color: var(--main-blue); margin: 0;">🏢 ОСББ 52</h1>
+        <small>вул. Космонавтів, 52</small>
+    </div>
+
+    <div class="stats">
+        <div class="stat-box"><span id="countActive">0</span>В роботі</div>
+        <div class="stat-box"><span id="countDone">0</span>Виконано</div>
+    </div>
+
     <input type="text" id="userName" placeholder="Прізвище та № квартири" oninput="checkAdmin(this.value)">
-    <textarea id="userTask" placeholder="Що трапилося?"></textarea>
+    
+    <select id="category">
+        <option>Загальне питання</option>
+        <option>Електрика ⚡</option>
+        <option>Водопостачання 💧</option>
+        <option>Ліфт 🛗</option>
+        <option>Прибудинкова територія</option>
+    </select>
+
+    <textarea id="userTask" rows="3" placeholder="Опишіть проблему..."></textarea>
     <button onclick="addRequest()">ВІДПРАВИТИ ЗАЯВКУ</button>
     
     <div id="requestList"></div>
     
     <div class="chat" id="chatBox"></div>
-    <div style="display:flex; gap:5px">
+    <div style="display:flex; gap:5px; margin-top:5px;">
         <input type="text" id="chatMsg" placeholder="Чат..." style="margin:0">
         <button style="width:60px; margin:0" onclick="sendChat()">OK</button>
     </div>
@@ -49,34 +74,37 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Функція перевірки адміна
     function checkAdmin(v) {
-        if(v.toLowerCase().trim() === 'адмін52') {
-            document.body.classList.add('is-admin');
-        } else {
-            document.body.classList.remove('is-admin');
-        }
+        if(v.toLowerCase().trim() === 'адмін52') document.body.classList.add('is-admin');
+        else document.body.classList.remove('is-admin');
     }
 
     function addRequest() {
         const n = document.getElementById('userName').value;
         const t = document.getElementById('userTask').value;
-        if(n && t) db.ref('requests/').push({ n, t });
+        const c = document.getElementById('category').value;
+        if(n && t) db.ref('requests/').push({ n, t, c, status: 'active' });
         document.getElementById('userTask').value = '';
     }
 
     db.ref('requests/').on('value', s => {
         const l = document.getElementById('requestList'); 
-        l.innerHTML = "<b>📋 Активні заявки:</b>";
-        s.forEach(c => {
-            const r = c.val();
+        let active = 0, done = 0;
+        l.innerHTML = "<p><b>📋 Список заявок:</b></p>";
+        s.forEach(child => {
+            const r = child.val();
+            if(r.status === 'active') active++; else done++;
             l.innerHTML += `
                 <div class="card">
-                    <b>${r.n}</b><br>${r.t}
-                    <button class="admin-only" style="background:red; color:white; border:none; padding:5px; border-radius:5px; margin-top:5px; cursor:pointer;" 
-                    onclick="db.ref('requests/${c.key}').remove()">Видалити 🗑</button>
+                    <small style="color: grey;">${r.c || 'Загальне'}</small><br>
+                    <b>${r.n}</b>: ${r.t}
+                    <div class="admin-only" style="margin-top:10px">
+                        <button style="background:red; padding:5px; font-size:10px;" onclick="db.ref('requests/${child.key}').remove()">Видалити 🗑</button>
+                    </div>
                 </div>`;
         });
+        document.getElementById('countActive').innerText = active;
+        document.getElementById('countDone').innerText = done;
     });
 
     function sendChat() {
@@ -86,15 +114,10 @@
         document.getElementById('chatMsg').value = "";
     }
 
-    db.ref('messages/').limitToLast(20).on('value', s => {
+    db.ref('messages/').limitToLast(15).on('value', s => {
         const b = document.getElementById('chatBox'); b.innerHTML = "";
         s.forEach(c => {
-            const m = c.val();
-            b.innerHTML += `
-                <div style="margin-bottom:5px; border-bottom:1px solid #ddd; padding:2px;">
-                    <span class="admin-only del-btn" onclick="db.ref('messages/${c.key}').remove()">×</span>
-                    ${m.msg}
-                </div>`;
+            b.innerHTML += `<div><span class="admin-only del" onclick="db.ref('messages/${c.key}').remove()">×</span> ${c.val().msg}</div>`;
         });
         b.scrollTop = b.scrollHeight;
     });
