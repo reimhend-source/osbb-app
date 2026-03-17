@@ -63,7 +63,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const TG_TOKEN = "8667139429:AAFiDPo3axZseFGJQMl2hpc3mP_WIfciiL8";
+    // ПРАВИЛЬНИЙ ТОКЕН З ПІДКРЕСЛЕННЯМ В КІНЦІ
+    const TG_TOKEN = "8667139429:AAFiDPo3axZseFGJQMl2hpc3mP_WIfciiL8_";
     const TG_ID = "7698734482";
 
     function checkAdmin(v) {
@@ -89,7 +90,7 @@
             db.ref('requests/').push({ n, t, c, status: 'active' });
             sendTG(`🔔 <b>НОВА ЗАЯВКА!</b>\n\n👤 <b>Від:</b> ${n}\n📂 <b>Категорія:</b> ${c}\n📝 <b>Опис:</b> ${t}`);
             document.getElementById('userTask').value = '';
-            alert("Заявку відправлено! Адмін отримав сповіщення.");
+            alert("Заявку відправлено! Перевірте Telegram.");
         } else { alert("Заповніть усі поля!"); }
     }
 
