@@ -7,27 +7,34 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f9; padding: 15px; margin: 0; }
+        body { font-family: sans-serif; background: #f4f7f9; padding: 10px; transition: 0.3s; }
+        .is-admin { background: #e8f4fd !important; } /* Колір адміна */
         .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         input, textarea, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
         button { background: #0b2c5a; color: white; font-weight: bold; border: none; cursor: pointer; }
-        .card { padding: 15px; margin-top: 10px; border-radius: 10px; border-left: 6px solid #0b2c5a; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative; }
-        .admin-only { display: none; margin-top: 10px; }
-        .is-admin .admin-only { display: block; }
-        .chat { height: 180px; overflow-y: auto; background: #eef2f5; padding: 10px; border-radius: 10px; margin-top: 20px; font-size: 14px; }
+        .card { padding: 15px; margin-top: 10px; border-radius: 10px; border-left: 6px solid #0b2c5a; background: #fff; position: relative; }
+        
+        /* КНОПКИ АДМІНА - СХОВАНІ ЗА ЗАМОВЧУВАННЯМ */
+        .admin-only { display: none !important; }
+        .is-admin .admin-only { display: inline-block !important; }
+        
+        .chat { height: 180px; overflow-y: auto; background: #eef2f5; padding: 10px; border-radius: 10px; margin-top: 20px; }
+        .del-btn { color: red; font-weight: bold; cursor: pointer; margin-left: 10px; float: right; }
     </style>
 </head>
 <body>
 <div class="container">
     <h2 style="color:#0b2c5a; text-align:center;">🚀 Космонавтів 52</h2>
     <input type="text" id="userName" placeholder="Прізвище та № квартири" oninput="checkAdmin(this.value)">
-    <textarea id="userTask" placeholder="Опишіть проблему або пропозицію..."></textarea>
+    <textarea id="userTask" placeholder="Що трапилося?"></textarea>
     <button onclick="addRequest()">ВІДПРАВИТИ ЗАЯВКУ</button>
+    
     <div id="requestList"></div>
+    
     <div class="chat" id="chatBox"></div>
     <div style="display:flex; gap:5px">
-        <input type="text" id="chatMsg" placeholder="Напишіть у чат..." style="margin:0">
-        <button style="width:70px; margin:0" onclick="sendChat()">OK</button>
+        <input type="text" id="chatMsg" placeholder="Чат..." style="margin:0">
+        <button style="width:60px; margin:0" onclick="sendChat()">OK</button>
     </div>
 </div>
 
@@ -42,7 +49,14 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    function checkAdmin(v) { if(v.toLowerCase() === 'адмін52') document.body.classList.add('is-admin'); }
+    // Функція перевірки адміна
+    function checkAdmin(v) {
+        if(v.toLowerCase().trim() === 'адмін52') {
+            document.body.classList.add('is-admin');
+        } else {
+            document.body.classList.remove('is-admin');
+        }
+    }
 
     function addRequest() {
         const n = document.getElementById('userName').value;
@@ -52,25 +66,36 @@
     }
 
     db.ref('requests/').on('value', s => {
-        const l = document.getElementById('requestList'); l.innerHTML = "<b>📋 Активні заявки:</b>";
+        const l = document.getElementById('requestList'); 
+        l.innerHTML = "<b>📋 Активні заявки:</b>";
         s.forEach(c => {
             const r = c.val();
-            l.innerHTML += `<div class="card"><b>${r.n}</b><br>${r.t}
-                <div class="admin-only"><button style="background:#e74c3c; padding:5px" onclick="db.ref('requests/${c.key}').remove()">Видалити 🗑</button></div>
-            </div>`;
+            l.innerHTML += `
+                <div class="card">
+                    <b>${r.n}</b><br>${r.t}
+                    <button class="admin-only" style="background:red; color:white; border:none; padding:5px; border-radius:5px; margin-top:5px; cursor:pointer;" 
+                    onclick="db.ref('requests/${c.key}').remove()">Видалити 🗑</button>
+                </div>`;
         });
     });
 
     function sendChat() {
         const m = document.getElementById('chatMsg').value;
         const n = document.getElementById('userName').value || "Сусід";
-        if(m) db.ref('messages/').push({ t: n + ": " + m });
+        if(m) db.ref('messages/').push({ msg: n + ": " + m });
         document.getElementById('chatMsg').value = "";
     }
+
     db.ref('messages/').limitToLast(20).on('value', s => {
         const b = document.getElementById('chatBox'); b.innerHTML = "";
-        s.forEach(c => { b.innerHTML += `<div style="margin-bottom:5px"><b>${c.val().t.split(':')[0]}:</b>${c.val().t.split(':')[1]}
-            <span class="admin-only" style="color:red; cursor:pointer; margin-left:10px" onclick="db.ref('messages/${c.key}').remove()">×</span></div>`; });
+        s.forEach(c => {
+            const m = c.val();
+            b.innerHTML += `
+                <div style="margin-bottom:5px; border-bottom:1px solid #ddd; padding:2px;">
+                    <span class="admin-only del-btn" onclick="db.ref('messages/${c.key}').remove()">×</span>
+                    ${m.msg}
+                </div>`;
+        });
         b.scrollTop = b.scrollHeight;
     });
 </script>
