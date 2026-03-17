@@ -8,7 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
         :root { --main: #0b2c5a; --bg: #f0f4f8; --green: #27ae60; --red: #e74c3c; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; transition: 0.3s; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
         .is-admin { background: #ddecff !important; }
         .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         .stats { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -63,8 +63,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // ПРАВИЛЬНИЙ ТОКЕН З ПІДКРЕСЛЕННЯМ В КІНЦІ
-    const TG_TOKEN = "8667139429:AAFiDPo3axZseFGJQMl2hpc3mP_WIfciiL8_";
+    // НОВИЙ ПЕРЕВІРЕНИЙ ТОКЕН
+    const TG_TOKEN = "8667139429:AAFt1LjnSqNegOlcdgXpDx0S_nkJTGK_ZNQ";
     const TG_ID = "7698734482";
 
     function checkAdmin(v) {
@@ -74,11 +74,13 @@
 
     async function sendTG(msg) {
         try {
-            await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+            const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chat_id: TG_ID, text: msg, parse_mode: 'HTML' })
             });
+            const data = await res.json();
+            console.log("TG Response:", data);
         } catch(e) { console.error("TG Error", e); }
     }
 
