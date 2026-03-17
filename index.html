@@ -7,29 +7,28 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        :root { --main-blue: #0b2c5a; --bg: #f0f4f8; --green: #27ae60; }
+        :root { --main: #0b2c5a; --bg: #f0f4f8; --green: #27ae60; --red: #e74c3c; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; transition: 0.3s; }
         .is-admin { background: #ddecff !important; }
         .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         .stats { display: flex; gap: 10px; margin-bottom: 20px; }
         .stat-box { flex: 1; background: #f8fafc; padding: 10px; border-radius: 12px; text-align: center; border: 1px solid #eee; }
-        .stat-box span { display: block; font-size: 20px; font-weight: bold; color: var(--main-blue); }
+        .stat-box span { display: block; font-size: 20px; font-weight: bold; color: var(--main); }
         input, textarea, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
-        button { background: var(--main-blue); color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 10px; }
-        .card { padding: 15px; margin-top: 10px; border-radius: 12px; border-left: 6px solid var(--main-blue); background: white; position: relative; }
+        button { background: var(--main); color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 10px; }
+        .card { padding: 15px; margin-top: 10px; border-radius: 12px; border-left: 6px solid var(--main); background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .card.done { border-left-color: var(--green); background: #f9fffb; opacity: 0.8; }
         .admin-only { display: none !important; }
         .is-admin .admin-only { display: block !important; }
         .chat { height: 150px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 12px; margin-top: 15px; border: 1px solid #eee; font-size: 13px; }
-        .btn-done { background: var(--green); padding: 5px; font-size: 11px; width: auto; margin-right: 5px; }
-        .btn-del { background: #e74c3c; padding: 5px; font-size: 11px; width: auto; }
+        .btn-act { padding: 5px 10px; font-size: 11px; width: auto; margin-right: 5px; cursor: pointer; border-radius: 5px; color: white; border: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div style="text-align: center; margin-bottom: 15px;">
-        <h1 style="color: var(--main-blue); margin: 0;">🏢 ОСББ 52</h1>
+        <h1 style="color: var(--main); margin: 0;">🏢 ОСББ 52</h1>
         <small>вул. Космонавтів, 52</small>
     </div>
 
@@ -46,7 +45,7 @@
         <option>Ліфт 🛗</option>
     </select>
     <textarea id="userTask" rows="3" placeholder="Опишіть проблему..."></textarea>
-    <button onclick="addRequest()">ВІДПРАВИТИ ЗАЯВКУ</button>
+    <button id="sendBtn" onclick="addRequest()">ВІДПРАВИТИ ЗАЯВКУ</button>
     
     <div id="requestList"></div>
     <div class="chat" id="chatBox"></div>
@@ -64,35 +63,51 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    const TG_TOKEN = "8667139429:AAFiDPo3axZseFGJQMl2hpc3mP_WIfciiL8";
+    const TG_ID = "7698734482";
+
     function checkAdmin(v) {
         if(v.toLowerCase().trim() === 'адмін52') document.body.classList.add('is-admin');
         else document.body.classList.remove('is-admin');
+    }
+
+    async function sendTG(msg) {
+        try {
+            await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: TG_ID, text: msg, parse_mode: 'HTML' })
+            });
+        } catch(e) { console.error("TG Error", e); }
     }
 
     function addRequest() {
         const n = document.getElementById('userName').value;
         const t = document.getElementById('userTask').value;
         const c = document.getElementById('category').value;
-        if(n && t) db.ref('requests/').push({ n, t, c, status: 'active' });
-        document.getElementById('userTask').value = '';
+        if(n && t) {
+            db.ref('requests/').push({ n, t, c, status: 'active' });
+            sendTG(`🔔 <b>НОВА ЗАЯВКА!</b>\n\n👤 <b>Від:</b> ${n}\n📂 <b>Категорія:</b> ${c}\n📝 <b>Опис:</b> ${t}`);
+            document.getElementById('userTask').value = '';
+            alert("Заявку відправлено! Адмін отримав сповіщення.");
+        } else { alert("Заповніть усі поля!"); }
     }
 
     db.ref('requests/').on('value', s => {
         const l = document.getElementById('requestList'); 
         let active = 0, done = 0;
-        l.innerHTML = "<b>📋 Заявки:</b>";
+        l.innerHTML = "<b>📋 Список заявок:</b>";
         s.forEach(child => {
             const r = child.val();
             const isDone = r.status === 'done';
             if(isDone) done++; else active++;
-            
             l.innerHTML += `
                 <div class="card ${isDone ? 'done' : ''}">
-                    <small style="color: grey;">${r.c || 'Загальне'} ${isDone ? '— ВИКОНАНО ✅' : ''}</small><br>
+                    <small style="color: grey;">${r.c || 'Загальне'}</small><br>
                     <b>${r.n}</b>: ${r.t}
                     <div class="admin-only" style="margin-top:10px">
-                        ${!isDone ? `<button class="btn-done" onclick="db.ref('requests/${child.key}').update({status:'done'})">Готово ✅</button>` : ''}
-                        <button class="btn-del" onclick="db.ref('requests/${child.key}').remove()">Видалити 🗑</button>
+                        ${!isDone ? `<button class="btn-act" style="background:var(--green)" onclick="db.ref('requests/${child.key}').update({status:'done'})">Готово ✅</button>` : ''}
+                        <button class="btn-act" style="background:var(--red)" onclick="db.ref('requests/${child.key}').remove()">Видалити 🗑</button>
                     </div>
                 </div>`;
         });
