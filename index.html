@@ -7,25 +7,22 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     <style>
-        :root { --main-blue: #0b2c5a; --bg: #f0f4f8; }
+        :root { --main-blue: #0b2c5a; --bg: #f0f4f8; --green: #27ae60; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; transition: 0.3s; }
         .is-admin { background: #ddecff !important; }
         .container { max-width: 450px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        
-        /* СТАТИСТИКА */
         .stats { display: flex; gap: 10px; margin-bottom: 20px; }
         .stat-box { flex: 1; background: #f8fafc; padding: 10px; border-radius: 12px; text-align: center; border: 1px solid #eee; }
         .stat-box span { display: block; font-size: 20px; font-weight: bold; color: var(--main-blue); }
-        
-        input, textarea, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
+        input, textarea, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
         button { background: var(--main-blue); color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 10px; }
-        
-        .card { padding: 15px; margin-top: 10px; border-radius: 12px; border-left: 6px solid var(--main-blue); background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: relative; }
+        .card { padding: 15px; margin-top: 10px; border-radius: 12px; border-left: 6px solid var(--main-blue); background: white; position: relative; }
+        .card.done { border-left-color: var(--green); background: #f9fffb; opacity: 0.8; }
         .admin-only { display: none !important; }
         .is-admin .admin-only { display: block !important; }
-        
         .chat { height: 150px; overflow-y: auto; background: #f8fafc; padding: 10px; border-radius: 12px; margin-top: 15px; border: 1px solid #eee; font-size: 13px; }
-        .del { color: #ff4d4d; cursor: pointer; font-weight: bold; margin-left: 8px; }
+        .btn-done { background: var(--green); padding: 5px; font-size: 11px; width: auto; margin-right: 5px; }
+        .btn-del { background: #e74c3c; padding: 5px; font-size: 11px; width: auto; }
     </style>
 </head>
 <body>
@@ -37,30 +34,23 @@
     </div>
 
     <div class="stats">
-        <div class="stat-box"><span id="countActive">0</span>В роботі</div>
-        <div class="stat-box"><span id="countDone">0</span>Виконано</div>
+        <div class="stat-box"><span id="countActive" style="color:#e67e22">0</span>В роботі</div>
+        <div class="stat-box"><span id="countDone" style="color:#27ae60">0</span>Виконано</div>
     </div>
 
     <input type="text" id="userName" placeholder="Прізвище та № квартири" oninput="checkAdmin(this.value)">
-    
     <select id="category">
         <option>Загальне питання</option>
         <option>Електрика ⚡</option>
         <option>Водопостачання 💧</option>
         <option>Ліфт 🛗</option>
-        <option>Прибудинкова територія</option>
     </select>
-
     <textarea id="userTask" rows="3" placeholder="Опишіть проблему..."></textarea>
     <button onclick="addRequest()">ВІДПРАВИТИ ЗАЯВКУ</button>
     
     <div id="requestList"></div>
-    
     <div class="chat" id="chatBox"></div>
-    <div style="display:flex; gap:5px; margin-top:5px;">
-        <input type="text" id="chatMsg" placeholder="Чат..." style="margin:0">
-        <button style="width:60px; margin:0" onclick="sendChat()">OK</button>
-    </div>
+    <div style="display:flex; gap:5px; margin-top:5px;"><input type="text" id="chatMsg" placeholder="Чат..."><button style="width:60px" onclick="sendChat()">OK</button></div>
 </div>
 
 <script>
@@ -90,16 +80,19 @@
     db.ref('requests/').on('value', s => {
         const l = document.getElementById('requestList'); 
         let active = 0, done = 0;
-        l.innerHTML = "<p><b>📋 Список заявок:</b></p>";
+        l.innerHTML = "<b>📋 Заявки:</b>";
         s.forEach(child => {
             const r = child.val();
-            if(r.status === 'active') active++; else done++;
+            const isDone = r.status === 'done';
+            if(isDone) done++; else active++;
+            
             l.innerHTML += `
-                <div class="card">
-                    <small style="color: grey;">${r.c || 'Загальне'}</small><br>
+                <div class="card ${isDone ? 'done' : ''}">
+                    <small style="color: grey;">${r.c || 'Загальне'} ${isDone ? '— ВИКОНАНО ✅' : ''}</small><br>
                     <b>${r.n}</b>: ${r.t}
                     <div class="admin-only" style="margin-top:10px">
-                        <button style="background:red; padding:5px; font-size:10px;" onclick="db.ref('requests/${child.key}').remove()">Видалити 🗑</button>
+                        ${!isDone ? `<button class="btn-done" onclick="db.ref('requests/${child.key}').update({status:'done'})">Готово ✅</button>` : ''}
+                        <button class="btn-del" onclick="db.ref('requests/${child.key}').remove()">Видалити 🗑</button>
                     </div>
                 </div>`;
         });
@@ -108,17 +101,13 @@
     });
 
     function sendChat() {
-        const m = document.getElementById('chatMsg').value;
-        const n = document.getElementById('userName').value || "Сусід";
+        const m = document.getElementById('chatMsg').value, n = document.getElementById('userName').value || "Сусід";
         if(m) db.ref('messages/').push({ msg: n + ": " + m });
         document.getElementById('chatMsg').value = "";
     }
-
     db.ref('messages/').limitToLast(15).on('value', s => {
         const b = document.getElementById('chatBox'); b.innerHTML = "";
-        s.forEach(c => {
-            b.innerHTML += `<div><span class="admin-only del" onclick="db.ref('messages/${c.key}').remove()">×</span> ${c.val().msg}</div>`;
-        });
+        s.forEach(c => { b.innerHTML += `<div>${c.val().msg}</div>`; });
         b.scrollTop = b.scrollHeight;
     });
 </script>
